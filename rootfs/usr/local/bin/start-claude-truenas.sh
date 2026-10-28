@@ -137,6 +137,12 @@ if [ -n "${TRUENAS_URL:-}" ]; then
     else
         warn "TrueNAS MCP could not connect yet. Output:"
         sed 's/^/[WARN]   /' <<<"$PREFLIGHT"
+        if [[ "$TRUENAS_URL" =~ ^(localhost|127\.0\.0\.1) ]] && grep -q "connection refused" <<<"$PREFLIGHT"; then
+            warn "Nothing listens on $TRUENAS_URL. The TrueNAS web UI is probably bound to a specific IP"
+            warn "(System > General > GUI), or the app is not using host networking."
+            warn "Fix: set TRUENAS_URL to the NAS IP and TRUENAS_INSECURE=true (with host networking"
+            warn "that connection never leaves the machine)."
+        fi
         warn "Claude Code will still start; fix the settings and restart the app."
     fi
 
@@ -205,7 +211,10 @@ else
 fi
 
 log "Web terminal on port $TTYD_PORT (user: $TTYD_USER)"
+# --debug 3 = errors and warnings only: at the default level ttyd logs the
+# login credential (base64 user:password) to the app log.
 exec ttyd --port "$TTYD_PORT" --writable --ping-interval 30 --max-clients 5 \
+    --debug 3 \
     "${TTYD_AUTH[@]}" \
     -t fontSize="${TERMINAL_FONT_SIZE:-14}" \
     -t fontFamily=Monaco,Consolas,monospace \
