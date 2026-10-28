@@ -138,10 +138,10 @@ if [ -n "${TRUENAS_URL:-}" ]; then
         warn "TrueNAS MCP could not connect yet. Output:"
         sed 's/^/[WARN]   /' <<<"$PREFLIGHT"
         if [[ "$TRUENAS_URL" =~ ^(localhost|127\.0\.0\.1) ]] && grep -q "connection refused" <<<"$PREFLIGHT"; then
-            warn "Nothing listens on $TRUENAS_URL. The TrueNAS web UI is probably bound to a specific IP"
-            warn "(System > General > GUI), or the app is not using host networking."
-            warn "Fix: set TRUENAS_URL to the NAS IP and TRUENAS_INSECURE=true (with host networking"
-            warn "that connection never leaves the machine)."
+            warn "Nothing listens on $TRUENAS_URL. Check System > General > GUI:"
+            warn "- HTTPS port is not 443 (e.g. 444)? Set TRUENAS_URL=localhost:<port>"
+            warn "- Web UI bound to one IP instead of 0.0.0.0? Set TRUENAS_URL to that IP and TRUENAS_INSECURE=true"
+            warn "  (with host networking that connection never leaves the machine)"
         fi
         warn "Claude Code will still start; fix the settings and restart the app."
     fi

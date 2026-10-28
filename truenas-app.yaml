@@ -17,8 +17,8 @@ services:
       TTYD_PASSWORD: "CHANGE-ME"
 
       # TrueNAS API access — use a dedicated user with the Read-Only Administrator role
-      # If the log says "connection refused" (web UI bound to one IP), use the
-      # NAS IP here and uncomment TRUENAS_INSECURE.
+      # Web UI on another HTTPS port (System > General > GUI)? Use e.g. localhost:444.
+      # Web UI bound to one IP? Use that IP here and uncomment TRUENAS_INSECURE.
       TRUENAS_URL: localhost
       # TRUENAS_INSECURE: "true"
       TRUENAS_API_USER: claude-ro

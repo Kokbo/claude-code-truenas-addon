@@ -80,6 +80,8 @@ TrueNAS only accepts API keys over encrypted connections (and revokes a key used
 
 - **Host networking + `TRUENAS_URL: localhost`** (default in `truenas-app.yaml`): the default TrueNAS
   certificate is issued for `localhost`, and over loopback the app pins it automatically. Fully verified, zero setup.
+- **Custom HTTPS port** (System → General → GUI → Web Interface HTTPS Port, e.g. `444` when 443 is used by a
+  reverse proxy): set `TRUENAS_URL: "localhost:444"`. Verification still works.
 - **Web UI bound to one IP** (System → General → GUI → Web Interface IPv4 Address is not `0.0.0.0`): nothing
   listens on `localhost`, so the log shows `connection refused`. Set `TRUENAS_URL` to the NAS IP and
   `TRUENAS_INSECURE: "true"`. With host networking that connection stays inside the machine.
@@ -126,6 +128,6 @@ Edit `/data/claude/CLAUDE.md` to change Claude's standing instructions; it is on
 - **App keeps restarting** → check the logs; usually `TTYD_PASSWORD` is not set.
 - **`TrueNAS MCP could not connect`** → the log shows the reason. Check the API user, key and
   `TRUENAS_URL`; run `truenas-check` in the terminal after fixing.
-- **`connection refused` on localhost** → see *Web UI bound to one IP* under TLS options.
+- **`connection refused`** → the web UI uses another HTTPS port or is bound to one IP; see TLS options.
 - **Port 7681 already in use** (host networking) → set `TTYD_PORT` to another port.
 - **`claude` hangs** → the CPU lacks AVX (e.g. a VM with a generic CPU type); set the VM CPU type to `host`.
