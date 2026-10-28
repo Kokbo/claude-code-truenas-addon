@@ -1,5 +1,5 @@
 # Paste into TrueNAS: Apps → Discover Apps → ⋮ → Install via YAML
-# Replace "tank" with your pool name and fill in the values marked CHANGE.
+# Replace "StoragePool" with your pool name and fill in every CHANGE-ME.
 services:
   claude-code:
     image: ghcr.io/kokbo/claude-code-truenas:latest
@@ -16,24 +16,31 @@ services:
       TTYD_USER: claude
       TTYD_PASSWORD: "CHANGE-ME"
 
-      # TrueNAS API access — use a dedicated user with the Read-Only Administrator role
-      # Web UI on another HTTPS port (System > General > GUI)? Use e.g. localhost:444.
-      # Web UI bound to one IP? Use that IP here and uncomment TRUENAS_INSECURE.
-      TRUENAS_URL: localhost
-      # TRUENAS_INSECURE: "true"
+      # TrueNAS API access with the read-only claude-ro user.
+      # Use the Web Interface HTTPS Port from System > General > GUI:
+      #   443 → localhost        anything else → localhost:<port>, e.g. localhost:444
+      TRUENAS_URL: "localhost:444"
       TRUENAS_API_USER: claude-ro
       TRUENAS_API_KEY: "CHANGE-ME"
       TRUENAS_MCP_READ_ONLY: "true"
+      # Only if the web UI is bound to one IP instead of 0.0.0.0:
+      # set TRUENAS_URL to that IP (with the port) and uncomment this.
+      # TRUENAS_INSECURE: "true"
+
+      # Remote Control: steer sessions from claude.ai/code or the Claude app
+      ENABLE_REMOTE_CONTROL: "true"
+      REMOTE_CONTROL_NAME: TrueNAS
+      # REMOTE_CONTROL_PERMISSION_MODE: plan   # default, acceptEdits or plan
 
       # Optional
       # CLAUDE_MODEL: claude-opus-5-5
       # TERMINAL_THEME: dark            # or light
       # TERMINAL_FONT_SIZE: "14"
       # AUTO_UPDATE_CLAUDE: "true"
-      # ENABLE_REMOTE_CONTROL: "false"  # steer sessions from the Claude app
       # TTYD_PORT: "7681"
     volumes:
-      # App state: Claude login, settings, MCP config, history
-      - /mnt/tank/apps/claude-code:/data
-      # Optional: read-only view of your pool, so Claude can inspect files
-      # - /mnt/tank:/mnt/tank:ro
+      # App state: Claude login, settings, MCP config, history.
+      # Its own dataset without an SMB share: it holds your login and API key.
+      - /mnt/StoragePool/apps/claude-code:/data
+      # Optional: read-only view of your data, so Claude can inspect files
+      # - /mnt/StoragePool/media:/mnt/StoragePool/media:ro

@@ -40,6 +40,7 @@ docker exec smoke jq -e '.mcpServers.truenas.command == "truenas-mcp"' /data/cla
 docker exec smoke jq -e '.permissions.allow | index("mcp__truenas")' /data/claude/settings.json >/dev/null \
     || fail "read-only tools not pre-approved"
 docker exec smoke test -f /data/claude/CLAUDE.md || fail "CLAUDE.md not installed"
+docker exec smoke tmux has-session -t rc || fail "Remote Control tmux session not started"
 
 echo "== Startup log"
 docker logs smoke 2>&1

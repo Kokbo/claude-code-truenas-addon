@@ -39,5 +39,6 @@ alias ll='ls -la'
 alias c='claude'
 alias cc='claude --continue'
 alias claude-update='claude update'
+alias claude-rc='tmux attach -t rc'   # Remote Control server (detach: Ctrl-b d)
 
 [ -f /data/.update_notice ] && echo -e "\033[1;33m[UPDATE AVAILABLE]\033[0m Claude Code $(cat /data/.update_notice) — restart the app or run: claude-update"

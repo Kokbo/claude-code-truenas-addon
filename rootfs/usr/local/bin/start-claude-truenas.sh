@@ -165,19 +165,37 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Optional: Remote Control (steer sessions from claude.ai / the Claude app)
+# Remote Control — view and steer sessions from claude.ai/code or the Claude app.
+# Runs `claude remote-control` in its own detached tmux session 'rc', independent
+# of the terminal session, and restarts it 30s after it exits (e.g. before the
+# first login). Attach with: tmux attach -t rc
 # ---------------------------------------------------------------------------
 WORKDIR="${WORKDIR:-$DATA/workspace}"
 [ -d "$WORKDIR" ] || { warn "WORKDIR '$WORKDIR' not found, using $DATA/workspace"; WORKDIR="$DATA/workspace"; }
 cd "$WORKDIR"
 
-if truthy "${ENABLE_REMOTE_CONTROL:-false}"; then
+# The rc server is the single entry point; remoteControlAtStartup would make every
+# interactive session register too and show up twice in claude.ai/code.
+if jq 'del(.remoteControlAtStartup)' "$SETTINGS_FILE" > "$SETTINGS_TMP"; then
+    cat "$SETTINGS_TMP" > "$SETTINGS_FILE"
+fi
+
+tmux kill-session -t rc 2>/dev/null || true
+if truthy "${ENABLE_REMOTE_CONTROL:-true}"; then
     RC_NAME="${REMOTE_CONTROL_NAME:-TrueNAS}"
     export CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX="$RC_NAME"
-    tmux kill-session -t rc 2>/dev/null || true
+    RC_ARGS=(--name "$RC_NAME")
+    case "${REMOTE_CONTROL_PERMISSION_MODE:-}" in
+        "") ;;
+        default|acceptEdits|plan) RC_ARGS+=(--permission-mode "$REMOTE_CONTROL_PERMISSION_MODE") ;;
+        *) warn "REMOTE_CONTROL_PERMISSION_MODE '$REMOTE_CONTROL_PERMISSION_MODE' ignored (allowed: default, acceptEdits, plan)" ;;
+    esac
     tmux new-session -d -s rc -c "$WORKDIR" \
-        "while true; do claude remote-control --name ${RC_NAME@Q}; echo '[rc] exited, retrying in 30s'; sleep 30; done"
-    log "Remote Control started in tmux session 'rc' (attach: tmux attach -t rc)"
+        "while true; do claude remote-control ${RC_ARGS[*]@Q}; echo '[rc] exited, retrying in 30s'; sleep 30; done"
+    log "Remote Control server started as '$RC_NAME' (tmux session 'rc'; attach: tmux attach -t rc)"
+    log "Not logged in yet? Run claude and /login in the terminal; the server retries every 30s."
+else
+    log "Remote Control disabled (ENABLE_REMOTE_CONTROL=false)"
 fi
 
 # ---------------------------------------------------------------------------
