@@ -1,0 +1,36 @@
+# Paste into TrueNAS: Apps → Discover Apps → ⋮ → Install via YAML
+# Replace "tank" with your pool name and fill in the values marked CHANGE.
+services:
+  claude-code:
+    image: ghcr.io/kokbo/claude-code-truenas:latest
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    # Host networking lets the app reach the TrueNAS API on "localhost",
+    # which matches the default TrueNAS certificate, so TLS is fully verified.
+    network_mode: host
+    environment:
+      TZ: Europe/Amsterdam
+
+      # Web terminal login (http://<nas-ip>:7681)
+      TTYD_USER: claude
+      TTYD_PASSWORD: "CHANGE-ME"
+
+      # TrueNAS API access — use a dedicated user with the Read-Only Administrator role
+      TRUENAS_URL: localhost
+      TRUENAS_API_USER: claude-ro
+      TRUENAS_API_KEY: "CHANGE-ME"
+      TRUENAS_MCP_READ_ONLY: "true"
+
+      # Optional
+      # CLAUDE_MODEL: claude-opus-5-5
+      # TERMINAL_THEME: dark            # or light
+      # TERMINAL_FONT_SIZE: "14"
+      # AUTO_UPDATE_CLAUDE: "true"
+      # ENABLE_REMOTE_CONTROL: "false"  # steer sessions from the Claude app
+      # TTYD_PORT: "7681"
+    volumes:
+      # App state: Claude login, settings, MCP config, history
+      - /mnt/tank/apps/claude-code:/data
+      # Optional: read-only view of your pool, so Claude can inspect files
+      # - /mnt/tank:/mnt/tank:ro

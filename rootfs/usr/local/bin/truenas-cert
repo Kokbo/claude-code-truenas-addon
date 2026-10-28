@@ -1,0 +1,30 @@
+#!/bin/bash
+# Save the TLS certificate TrueNAS presents, for TRUENAS_TLS_CA.
+# Usage: truenas-cert [host[:port]] [output.pem]
+#   defaults: host = $TRUENAS_URL (or localhost), output = /data/truenas-cert.pem
+set -e
+
+TARGET="${1:-${TRUENAS_URL:-localhost}}"
+OUT="${2:-/data/truenas-cert.pem}"
+
+TARGET="${TARGET#wss://}"
+TARGET="${TARGET%%/*}"
+HOST="${TARGET%%:*}"
+PORT=443
+[[ "$TARGET" == *:* ]] && PORT="${TARGET##*:}"
+
+TMP=$(mktemp)
+trap 'rm -f "$TMP"' EXIT
+if ! openssl s_client -connect "${HOST}:${PORT}" -servername "$HOST" </dev/null 2>/dev/null \
+        | openssl x509 -outform PEM > "$TMP" 2>/dev/null || [ ! -s "$TMP" ]; then
+    echo "Could not read a certificate from ${HOST}:${PORT}" >&2
+    exit 1
+fi
+mv "$TMP" "$OUT"
+trap - EXIT
+
+echo "Saved certificate from ${HOST}:${PORT} to $OUT"
+openssl x509 -in "$OUT" -noout -subject -enddate
+openssl x509 -in "$OUT" -noout -ext subjectAltName 2>/dev/null || echo "(no subjectAltName)"
+echo
+echo "The name in TRUENAS_URL must match one of the names above, or TLS verification fails."
