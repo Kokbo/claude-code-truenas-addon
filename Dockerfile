@@ -41,7 +41,7 @@ RUN go build -trimpath \
 # ---------------------------------------------------------------------------
 # Stage 2: runtime — Claude Code + ttyd web terminal + tmux
 # ---------------------------------------------------------------------------
-FROM node:24-slim@sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530
+FROM node:26-slim@sha256:abe7e5a82b61a8ef67b315b85497c9e65173387ccf2f4a029248184b8e020be5
 
 LABEL org.opencontainers.image.title="Claude Code for TrueNAS" \
       org.opencontainers.image.description="Claude Code CLI in a browser terminal, with the official TrueNAS MCP server" \
