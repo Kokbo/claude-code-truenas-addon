@@ -1,0 +1,91 @@
+name: Trivy
+
+# Report-only: findings go to code scanning and never fail the run, so upstream
+# CVEs can't block builds or Renovate's automerges.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "rootfs/**"
+      - ".github/workflows/trivy.yml"
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "rootfs/**"
+      - ".github/workflows/trivy.yml"
+  schedule:
+    # Daily: new advisories, and the newest Claude Code release. Pushes made with
+    # GITHUB_TOKEN don't trigger workflows, so this also covers automated changes.
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trivy:
+    name: trivy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # check out the repository
+      security-events: write # upload SARIF to code scanning
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      # One architecture, exported as a tarball into the workspace so the Trivy
+      # container can read it without access to the Docker socket.
+      - name: Build image (linux/amd64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          outputs: type=docker,dest=trivy-image.tar
+          build-args: CLAUDE_CODE_CACHEBUST=${{ github.run_id }}
+          cache-from: type=gha
+
+      # Trivy runs from a digest-pinned image, not trivy-action/setup-trivy
+      # (CVE-2026-33634). Scans run after the build so their cache dir in the
+      # workspace stays out of the build context; both scans share it.
+      - name: Scan Dockerfile configuration
+        uses: docker://aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+        with:
+          args: config --cache-dir .trivy-cache --misconfig-scanners dockerfile --exit-code 0 --format sarif --output trivy-config.sarif .
+
+      - name: Scan image
+        uses: docker://aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+        with:
+          args: image --cache-dir .trivy-cache --input trivy-image.tar --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 0 --format sarif --output trivy-image.sarif
+
+      - name: Summary
+        run: |
+          for f in trivy-image.sarif trivy-config.sarif; do
+            echo "$f: $(jq '[.runs[].results[]] | length' "$f") result(s)" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+
+      # Fork PRs get a read-only token; their results stay in the job log.
+      - name: Upload image results
+        if: github.event.pull_request.head.repo.fork != true
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+      - name: Upload Dockerfile results
+        if: github.event.pull_request.head.repo.fork != true
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config
