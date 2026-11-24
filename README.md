@@ -16,6 +16,13 @@ The TrueNAS counterpart of the [Claude Code Home Assistant add-on](https://githu
 
 Image: `ghcr.io/kokbo/claude-code-truenas:latest` (amd64)
 
+Every published image carries a signed build provenance attestation. To check that an image was built
+by this repository's workflow:
+
+```sh
+gh attestation verify oci://ghcr.io/kokbo/claude-code-truenas:latest -R Kokbo/claude-code-truenas-addon
+```
+
 ## Install
 
 ### 1. Make sure the image is public

@@ -116,6 +116,8 @@ VOLUME ["/data"]
 WORKDIR /data
 EXPOSE 7681
 
+# Shell form on purpose: ${TTYD_PORT} must expand at run time.
+# hadolint ignore=DL3025
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -s -o /dev/null http://127.0.0.1:${TTYD_PORT:-7681}/ || exit 1
 
