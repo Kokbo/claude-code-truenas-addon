@@ -1,0 +1,4 @@
+ignored:
+  # Pinning apt package versions breaks the build whenever Debian ships a fix;
+  # this image gets OS updates from the base image and the weekly rebuild.
+  - DL3008
