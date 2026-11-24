@@ -53,7 +53,11 @@ ENV LANG=C.UTF-8 \
     TERM=xterm-256color \
     DISABLE_AUTOUPDATER=1 \
     # Safe default: the MCP server hides and refuses every tool that changes the NAS.
-    TRUENAS_MCP_READ_ONLY=true
+    TRUENAS_MCP_READ_ONLY=true \
+    # Claude Code's postinstall swaps a placeholder for the native binary; npm is
+    # moving to running only allow-listed install scripts. An env var (not an
+    # npmrc) also covers installs with --prefix /data/npm-global and `claude update`.
+    npm_config_allow_scripts=@anthropic-ai/claude-code
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
