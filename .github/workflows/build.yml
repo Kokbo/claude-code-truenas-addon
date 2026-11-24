@@ -64,7 +64,9 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read # check out the repository
-      packages: write # push the image to GHCR
+      packages: write # push the image and its attestation to GHCR
+      id-token: write # sign the provenance attestation (Sigstore, via OIDC)
+      attestations: write # store the attestation on GitHub
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -74,11 +76,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
+      # Registry names must be lowercase; the owner name isn't.
+      - name: Image name
+        id: image
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: echo "name=ghcr.io/${OWNER,,}/claude-code-truenas" >> "$GITHUB_OUTPUT"
+
       - name: Image metadata
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
-          images: ghcr.io/${{ github.repository_owner }}/claude-code-truenas
+          images: ${{ steps.image.outputs.name }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value={{date 'YYYYMMDD'}},enable={{is_default_branch}}
@@ -104,3 +113,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: CLAUDE_CODE_CACHEBUST=${{ env.CLAUDE_CODE_CACHEBUST }}
           cache-from: type=gha
+
+      # Verify with: gh attestation verify oci://ghcr.io/kokbo/claude-code-truenas:latest -R Kokbo/claude-code-truenas-addon
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+          # Storage records need an organization-owned repository.
+          create-storage-record: false
