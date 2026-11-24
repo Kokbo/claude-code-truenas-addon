@@ -12,23 +12,71 @@ on:
     # Weekly rebuild: latest Claude Code + base image security updates
     - cron: "17 4 * * 1"
 
-permissions:
-  contents: read
-  packages: write
+permissions: {}
+
+# One run per ref. PR runs cancel superseded ones; runs on main queue instead,
+# so two merges in a row can't push `latest` out of order.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CLAUDE_CODE_CACHEBUST: ${{ github.run_id }}
 
 jobs:
+  # Runs for every event, including PRs: build and smoke-test, no registry access.
   build:
+    name: build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # check out the repository
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build (for testing)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: claude-code-truenas:test
+          build-args: CLAUDE_CODE_CACHEBUST=${{ env.CLAUDE_CODE_CACHEBUST }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        run: bash ci/smoke-test.sh claude-code-truenas:test
+
+  # Only after a green build, and never for PRs: PR runs (including Renovate's)
+  # never get a token that can write to GHCR.
+  publish:
+    name: publish
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # check out the repository
+      packages: write # push the image to GHCR
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ghcr.io/${{ github.repository_owner }}/claude-code-truenas
           tags: |
@@ -36,36 +84,23 @@ jobs:
             type=raw,value={{date 'YYYYMMDD'}},enable={{is_default_branch}}
             type=sha,format=short
 
-      - name: Build (for testing)
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/amd64
-          load: true
-          tags: claude-code-truenas:test
-          build-args: CLAUDE_CODE_CACHEBUST=${{ github.run_id }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Smoke test
-        run: bash ci/smoke-test.sh claude-code-truenas:test
-
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Same build args as the build job, so every layer comes from the cache it
+      # just wrote and the pushed image is the one that passed the smoke test.
       - name: Push
-        if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v7
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: CLAUDE_CODE_CACHEBUST=${{ github.run_id }}
+          build-args: CLAUDE_CODE_CACHEBUST=${{ env.CLAUDE_CODE_CACHEBUST }}
           cache-from: type=gha
