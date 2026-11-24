@@ -10,6 +10,10 @@ trap cleanup EXIT
 echo "== Binaries"
 docker run --rm "$IMG" bash -c 'claude --version && truenas-mcp --version && ttyd --version && tmux -V'
 
+echo "== npm allows Claude Code's install script (needed for updates)"
+allowed=$(docker run --rm "$IMG" npm config get allow-scripts)
+[ "$allowed" = "@anthropic-ai/claude-code" ] || fail "npm allow-scripts is '$allowed'"
+
 echo "== Refuses to start without a password"
 set +e
 timeout 60 docker run --rm "$IMG" >/tmp/nopass.log 2>&1
