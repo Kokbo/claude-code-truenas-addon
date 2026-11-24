@@ -16,6 +16,13 @@ The TrueNAS counterpart of the [Claude Code Home Assistant add-on](https://githu
 
 Image: `ghcr.io/kokbo/claude-code-truenas:latest` (amd64)
 
+Every published image carries a signed build provenance attestation. To check that an image was built
+by this repository's workflow:
+
+```sh
+gh attestation verify oci://ghcr.io/kokbo/claude-code-truenas:latest -R Kokbo/claude-code-truenas-addon
+```
+
 ## Install
 
 ### 1. Make sure the image is public
@@ -180,7 +187,9 @@ Edit `/data/claude/CLAUDE.md` to change Claude's standing instructions; it is on
 
 - **Claude Code**: restart the app (or run `claude-update` in the terminal).
 - **Image** (base OS, ttyd, MCP server): *Apps → claude-code → Update* pulls the newest weekly build.
-- **MCP server version**: bump `TRUENAS_MCP_VERSION` in the `Dockerfile`.
+- **Pinned versions** (base images, TrueNAS MCP server, ttyd, CI actions): Renovate opens PRs on Mondays.
+  Base-image digest and patch updates merge themselves once CI is green; MCP server and ttyd updates are
+  reviewed by hand. Renovate updates `TRUENAS_MCP_COMMIT` itself; a ttyd PR needs both checksums copied in from the release.
 
 ## Troubleshooting
 
