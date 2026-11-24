@@ -1,6 +1,61 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    "docker:pinDigests"
+  ],
+  "timezone": "Etc/UTC",
+  "schedule": ["* 0-3 * * 1"],
+  "platformAutomerge": false,
+  "packageRules": [
+    {
+      "description": "GitHub Actions and the tool images their steps run: one PR, only releases at least 3 days old",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Merge low-risk Actions updates once CI is green. Not 'digest': for an exact-version pin a new digest means the tag was moved, which needs a look",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest"],
+      "automerge": true
+    },
+    {
+      "description": "Base images: CI builds and smoke-tests the image, so digest refreshes and patch updates merge themselves; minor and major updates wait for review",
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["digest", "patch", "pin", "pinDigest"],
+      "automerge": true
+    },
+    {
+      "description": "Trivy images were compromised in March 2026 (CVE-2026-33634): own PR, a week's wait, always reviewed",
+      "matchPackageNames": ["aquasec/trivy"],
+      "groupName": "Trivy",
+      "minimumReleaseAge": "7 days",
+      "automerge": false
+    },
+    {
+      "description": "truenas-mcp decides what Claude can do to the NAS (read-only mode): always reviewed",
+      "matchPackageNames": ["truenas/truenas-mcp"],
+      "automerge": false
+    },
+    {
+      "description": "ttyd: the pinned checksums can't be updated automatically",
+      "matchPackageNames": ["tsl0922/ttyd"],
+      "automerge": false,
+      "prBodyNotes": [
+        "Copy `TTYD_SHA256_AMD64` and `TTYD_SHA256_ARM64` in the Dockerfile from this release's `SHA256SUMS` before merging; the build fails until they match."
+      ]
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Dockerfile ARG versions marked with a '# renovate:' comment; an optional *_COMMIT ARG right below pins the tag to a commit",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\nARG \\w+_VERSION=(?<currentValue>\\S+)(?:\\nARG \\w+_COMMIT=(?<currentDigest>[0-9a-f]{40}))?"
+      ]
+    }
   ]
 }
